@@ -105,7 +105,7 @@ public class Main {
         } catch (IllegalArgumentException e) {
             System.out.println("Fehler: " + e.getMessage());
         } catch (ArithmeticException e) {
-            System.out.println("Fehler: Das Gleichungssystem hat keine eindeutige Lösung.");
+            System.out.println("Hinweis: "+e.getMessage());
         }
     }
     

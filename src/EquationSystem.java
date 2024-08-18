@@ -2,95 +2,147 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EquationSystem {
-	private List<Equation> equations;
+    private final List<Equation> equations;
 
-	public EquationSystem() {
-		this.equations = new ArrayList<>();
-	}
+    public EquationSystem() {
+        this.equations = new ArrayList<>();
+    }
 
-	public void addEquation(Equation equation) {
-		equations.add(equation);
-	}
+    public void addEquation(Equation equation) {
+        if (equation == null) {
+            throw new IllegalArgumentException("Die Gleichung darf nicht null sein.");
+        }
+        if (!equations.isEmpty() && equation.getCoefficients().length != getExpectedVariableCount()) {
+            throw new IllegalArgumentException("Die Anzahl der Variablen in der neuen Gleichung stimmt nicht mit dem System überein.");
+        }
+        equations.add(equation);
+    }
 
-	public String solve() throws IllegalArgumentException {
-		int n = equations.size();
-		if (n < 2 || n > 3) {
-			throw new IllegalArgumentException("Das System muss 2 bis 3 Gleichungen haben.");
-		}
+    public String solve() {
+        validateSystem();
 
-		double[][] matrix = new double[n][n + 1];
+        int variableCount = equations.get(0).getCoefficients().length;
 
-		// Matrix aus Gleichungen erstellen
-		for (int i = 0; i < n; i++) {
-			Equation eq = equations.get(i);
-			int[] coefficients = eq.getCoefficients();
-			for (int j = 0; j < n; j++) {
-				matrix[i][j] = coefficients[j];
-			}
-			matrix[i][n] = eq.getConstant();
-		}
+        // Kopiere das System, um die originale Matrix nicht zu verändern
+        double[][] matrix = createMatrix();
+        double[] constants = createConstantsArray();
 
-		// Gaußsches Eliminationsverfahren
-		for (int i = 0; i < n; i++) {
-			// Pivotisierung
-			for (int j = i + 1; j < n; j++) {
-				if (Math.abs(matrix[j][i]) > Math.abs(matrix[i][i])) {
-					double[] temp = matrix[i];
-					matrix[i] = matrix[j];
-					matrix[j] = temp;
-				}
-			}
+        // Bringe das System in Stufenform (Gaussian elimination)
+        performGaussianElimination(matrix, constants);
 
-			// Wenn der Pivot-Element 0 ist, prüfen wir auf unendlich viele Lösungen oder
-			// keine Lösung
-			if (matrix[i][i] == 0) {
-				// Wenn die gesamte Zeile 0 ist und die letzte Spalte nicht 0 ist, gibt es keine
-				// Lösung
-				boolean allZeroes = true;
-				for (int k = i; k < n; k++) {
-					if (matrix[i][k] != 0) {
-						allZeroes = false;
-						break;
-					}
-				}
+        // Überprüfe auf unlösbare oder unendlich viele Lösungen
+        checkForSpecialCases(matrix, constants);
 
-				if (allZeroes && matrix[i][n] != 0) {
-					return "Das Gleichungssystem hat keine Lösung.";
-				}
+        // Berechne die Lösung (Back substitution)
+        double[] solutions = performBackSubstitution(matrix, constants);
 
-				// Wenn die gesamte Zeile und die letzte Spalte 0 sind, gibt es unendlich viele
-				// Lösungen
-				if (allZeroes && matrix[i][n] == 0) {
-					return "Das Gleichungssystem hat unendlich viele Lösungen.";
-				}
-			}
+        return formatSolution(solutions);
+    }
 
-			// Normalisierung der Gleichung
-			for (int j = i + 1; j < n; j++) {
-				double factor = matrix[j][i] / matrix[i][i];
-				for (int k = i; k <= n; k++) {
-					matrix[j][k] -= factor * matrix[i][k];
-				}
-			}
-		}
+    private void validateSystem() {
+        if (equations.size() < getExpectedVariableCount()) {
+            throw new IllegalArgumentException("Es müssen mindestens so viele Gleichungen wie Variablen vorhanden sein.");
+        }
+    }
 
-		// Rücksubstitution
-		double[] result = new double[n];
-		for (int i = n - 1; i >= 0; i--) {
-			result[i] = matrix[i][n];
-			for (int j = i + 1; j < n; j++) {
-				result[i] -= matrix[i][j] * result[j];
-			}
-			result[i] /= matrix[i][i];
-		}
+    private int getExpectedVariableCount() {
+        return equations.isEmpty() ? 0 : equations.get(0).getCoefficients().length;
+    }
 
-		// Ergebnisse formatieren und zurückgeben
-		StringBuilder sb = new StringBuilder();
-		char var = 'x';
-		for (int i = 0; i < result.length; i++) {
-			sb.append(String.format("%c = %.2f%n", var++, result[i]));
-		}
+    private double[][] createMatrix() {
+        int variableCount = getExpectedVariableCount();
+        double[][] matrix = new double[equations.size()][variableCount];
 
-		return sb.toString();
-	}
+        for (int i = 0; i < equations.size(); i++) {
+            for (int j = 0; j < variableCount; j++) {
+                matrix[i][j] = equations.get(i).getCoefficients()[j];
+            }
+        }
+
+        return matrix;
+    }
+
+    private double[] createConstantsArray() {
+        double[] constants = new double[equations.size()];
+        for (int i = 0; i < equations.size(); i++) {
+            constants[i] = equations.get(i).getConstant();
+        }
+        return constants;
+    }
+
+    private void performGaussianElimination(double[][] matrix, double[] constants) {
+        int n = matrix.length;
+
+        for (int i = 0; i < n; i++) {
+            // Finde die Zeile mit dem größten Pivot und tausche sie nach oben
+            int max = i;
+            for (int j = i + 1; j < n; j++) {
+                if (Math.abs(matrix[j][i]) > Math.abs(matrix[max][i])) {
+                    max = j;
+                }
+            }
+            swapRows(matrix, constants, i, max);
+
+            // Setze die Pivot-Zeile auf 1 und reduziere die anderen Zeilen
+            for (int j = i + 1; j < n; j++) {
+                double factor = matrix[j][i] / matrix[i][i];
+                constants[j] -= factor * constants[i];
+                for (int k = i; k < n; k++) {
+                    matrix[j][k] -= factor * matrix[i][k];
+                }
+            }
+        }
+    }
+
+    private void swapRows(double[][] matrix, double[] constants, int i, int max) {
+        double[] tempRow = matrix[i];
+        matrix[i] = matrix[max];
+        matrix[max] = tempRow;
+
+        double temp = constants[i];
+        constants[i] = constants[max];
+        constants[max] = temp;
+    }
+
+    private void checkForSpecialCases(double[][] matrix, double[] constants) {
+        int n = matrix.length;
+        for (int i = 0; i < n; i++) {
+            boolean allZeros = true;
+            for (int j = 0; j < matrix[i].length; j++) {
+                if (matrix[i][j] != 0) {
+                    allZeros = false;
+                    break;
+                }
+            }
+            if (allZeros && constants[i] != 0) {
+                throw new ArithmeticException("Das Gleichungssystem hat keine Lösung.");
+            }
+            if (allZeros && constants[i] == 0) {
+                throw new ArithmeticException("Das Gleichungssystem hat unendlich viele Lösungen.");
+            }
+        }
+    }
+
+    private double[] performBackSubstitution(double[][] matrix, double[] constants) {
+        int n = matrix.length;
+        double[] solutions = new double[n];
+
+        for (int i = n - 1; i >= 0; i--) {
+            double sum = 0.0;
+            for (int j = i + 1; j < n; j++) {
+                sum += matrix[i][j] * solutions[j];
+            }
+            solutions[i] = (constants[i] - sum) / matrix[i][i];
+        }
+
+        return solutions;
+    }
+
+    private String formatSolution(double[] solutions) {
+        StringBuilder result = new StringBuilder("Lösung: \n");
+        for (int i = 0; i < solutions.length; i++) {
+            result.append((char)('x' + i)).append(" = ").append(solutions[i]).append("\n");
+        }
+        return result.toString();
+    }
 }
