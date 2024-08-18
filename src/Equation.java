@@ -18,14 +18,14 @@ public class Equation {
 		return constant;
 	}
 
-	@Override
-	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		char var = 'x';
-		for (int i = 0; i < coefficients.length; i++) {
-			sb.append(String.format("%d%c + ", coefficients[i], var++));
-		}
-		sb.append(String.format("= %d", constant));
-		return sb.toString();
-	}
+//	@Override
+//	public String toString() {
+//		StringBuilder sb = new StringBuilder();
+//		char var = 'x';
+//		for (int i = 0; i < coefficients.length; i++) {
+//			sb.append(String.format("%d%c + ", coefficients[i], var++));
+//		}
+//		sb.append(String.format("= %d", constant));
+//		return sb.toString();
+//	}
 }
